@@ -27,10 +27,8 @@ from glances import __version__
 from glances.events_list import GlancesEventsList
 from glances.filter import GlancesFilter, GlancesFilterList
 from glances.globals import LINUX, WINDOWS, pretty_date, string_value_to_float, subsample
-from glances.main import GlancesMain
 from glances.outputs.glances_bars import Bar
 from glances.plugins.plugin.model import GlancesPluginModel
-from glances.stats import GlancesStats
 from glances.thresholds import (
     GlancesThresholdCareful,
     GlancesThresholdCritical,
@@ -42,13 +40,13 @@ from glances.thresholds import (
 # Global variables
 # =================
 
-# Init Glances core
-core = GlancesMain(args_begin_at=2)
-test_config = core.get_config()
-test_args = core.get_args()
+# Delay Glances core initialization until runtime (setUp) to avoid plugin discovery at import time
+core = None
+test_config = None
+test_args = None
 
-# Init Glances stats
-stats = GlancesStats(config=test_config, args=test_args)
+# Init Glances stats (will be initialized in setUp)
+stats = None
 
 # Unitest class
 # ==============
@@ -68,6 +66,7 @@ class TestGlances(unittest.TestCase):
 
         # Reset all the stats, history and views
         plugin_instance = stats.get_plugin(plugin)
+        self.assertIsNotNone(plugin_instance, msg=f'plugin {plugin} not found')
         plugin_instance.reset()  # reset stats
         plugin_instance.reset_views()  # reset views
         plugin_instance.reset_stats_history()  # reset history
@@ -549,8 +548,10 @@ class TestGlances(unittest.TestCase):
         print('INFO: [TEST_096] Test views')
         plugins_list = stats.getPluginsList()
         for plugin in plugins_list:
-            stats.get_plugin(plugin).get_raw()
-            views_grab = stats.get_plugin(plugin).get_views()
+            plugin_instance = stats.get_plugin(plugin)
+            self.assertIsNotNone(plugin_instance, msg=f'plugin {plugin} not found')
+            plugin_instance.get_raw()
+            views_grab = plugin_instance.get_views()
             self.assertTrue(isinstance(views_grab, dict), msg=f'{plugin} view is not a dict')
 
     def test_097_attribute(self):
@@ -678,6 +679,7 @@ class TestGlances(unittest.TestCase):
         plugin = 'diskio'
         field = 'read_bytes_rate_per_sec'
         plugin_instance = stats.get_plugin(plugin)
+        self.assertIsNotNone(plugin_instance, msg=f'plugin {plugin} not found')
         if len(plugin_instance.get_views()) == 0 or not test_config.get_bool_value(plugin, 'hide_zero', False):
             # No diskIO interface, test can not be done
             return
